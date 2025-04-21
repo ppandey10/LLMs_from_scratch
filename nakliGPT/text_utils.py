@@ -83,12 +83,3 @@ class nakliGreedySampling:
         # decode tokens
         text = self.tokenizer.decode(input_ids[0].tolist())
         return text
-
-
-
-
-
-
-            
-            
- 

@@ -38,4 +38,3 @@ if __name__ == "__main__":
     print(input_text)
     print("\n--- Generated Text ---")
     print(text)
-

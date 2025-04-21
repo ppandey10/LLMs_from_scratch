@@ -19,4 +19,3 @@ class nakliTokenizer:
         text = ' '.join([self.int_to_str[i] for i in ids])
         text = re.sub(r'\s+([,.?!"()\'])', r'\1', text)
         return text
-
