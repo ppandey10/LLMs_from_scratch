@@ -1,7 +1,7 @@
 # Large Language Models from Scratch
 Building large language models from the ground up — a step-by-step guide to understanding and implementing transformer-based architectures without relying on high-level libraries
 
-I will implement all the important papers in the field of large language models.
+This project explores the key concepts and milestones that shaped today’s modern LLMs — by recreating them, piece by piece.
 
 **Implemented Models**
 
