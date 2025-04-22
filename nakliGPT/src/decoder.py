@@ -8,6 +8,7 @@ Combining decoder components to build the nakliTransformerDecoder
 
 import torch
 import torch.nn as nn
+import numpy as np
 import torch.nn.functional as F
 
 #======================#
@@ -29,6 +30,7 @@ class nakliTransformerDecoder(nn.Module):
             in_dim=embd_dim,
             out_dim=embd_dim,
             context_length=context_length,
+            dropout=dropout,
             num_heads=num_heads,
             qkv_bias=qkv_bias,
         )
@@ -42,7 +44,7 @@ class nakliTransformerDecoder(nn.Module):
         #==================#
         # Multi-Head Attention
         #==================#
-        x = self.layer_norm_1(temp_x)
+        x = self.layer_norm_1(x)
         x = self.attention(x)
         x = self.dropout(x)
         x = temp_x + x # residual
@@ -51,7 +53,7 @@ class nakliTransformerDecoder(nn.Module):
         # Feed Forward
         #==================#
         temp_x = x # change temporary x
-        x = self.layer_norm_2(temp_x)
+        x = self.layer_norm_2(x)
         x = self.feed_forward(x)
         x = self.dropout(x)
         x = temp_x + x
@@ -67,11 +69,12 @@ class nakliMultiHeadAttention(nn.Module):
     - Number of Heads
     - Query, Key, Value: Weights and Projection
     """
-    def __init__(self, in_dim, out_dim, context_length, num_heads, qkv_bias=False):
+    def __init__(self, in_dim, out_dim, context_length, num_heads, dropout, qkv_bias=False):
         super().__init__()
         self.in_dim = in_dim
         self.out_dim = out_dim
         self.num_heads = num_heads
+        self.dropout = nn.Dropout(dropout)
         self.qkv_bias = qkv_bias
 
         # head dim
@@ -121,7 +124,7 @@ class nakliMultiHeadAttention(nn.Module):
         attention_weights = F.softmax(attention_scores, dim=-1)
 
         # dropout
-        attention_weights = F.dropout(attention_weights, p=0.1)
+        attention_weights = self.dropout(attention_weights)
 
         # context vector
         # (bs, num_heads, total_tokens_for_sentence, total_tokens_for_sentence) x (bs, num_heads, total_tokens_for_sentence, head_dim) -> (bs, num_heads, total_tokens_for_sentence, head_dim)
@@ -151,8 +154,7 @@ class nakliFeedForward(nn.Module):
         self.W_output = nn.Linear(4 * in_dim, in_dim)
 
     def forward(self, x):
-        x = self.W_output(self.act(self.W(x)))
-        return x
+        return self.W_output(self.act(self.W(x)))
 
 # test
 # if __name__ == "__main__":

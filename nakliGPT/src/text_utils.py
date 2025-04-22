@@ -6,6 +6,60 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 
+#=====================#
+# Instruction Dataset #
+#=====================#
+
+class nakliInstructionFineTuneDataset(Dataset):
+    def __init__(self, dataset, tokenizer):
+        self.dataset = dataset
+        self.tokenizer = tokenizer
+        self.encoded_dataset = []
+
+    def format_apalca_style_input(self, entry):
+        instruction = (
+            f"Below is an instruction that describes a task. "
+            f"Write an appropriate response for it."
+            f"\n\n### Instruction: \n{entry['instruction']}"
+        )
+        input = (
+            f"\n\n### Input: \n"
+            f"{entry['input']}" if entry['input'] else ""
+        )
+        
+        combined = instruction + input
+
+        return combined
+    
+    def apalca_style(self):
+        for item in self.dataset:
+            input_modified = self.format_apalca_style_input(item)
+            response_modified = f"\n\nResponse: \n{item['output']}"
+            apalca_type_format = input_modified + response_modified
+            self.encoded_dataset.append(self.tokenizer.encode(apalca_type_format))
+
+        return self.encoded_dataset
+        
+    def data_loaders(self, batch_size=4, shuffle=True, drop_last=True, num_workers=0):
+
+        return torch.utils.data.DataLoader(
+            self,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            drop_last=drop_last,
+            num_workers=num_workers
+        )
+
+    def __len__(self):
+        return len(self.encoded_dataset)
+
+    def __getitem__(self, idx):
+        return self.encoded_dataset[idx]
+
+#=====================#
+# Text Dataset        #
+#=====================#
+
 class nakliDataset(Dataset):
     def __init__(self, txt_path, tokenizer, max_length_token, stride):
         self.input_ids = []
@@ -38,6 +92,10 @@ class nakliDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.input_ids[idx], self.target_ids[idx]
+
+#=====================#
+# Greedy Sampling     #
+#=====================#
 
 class nakliGreedySampling:
     def __init__(self, model, tokenizer, num_new_tokens, max_context_length):
@@ -83,3 +141,52 @@ class nakliGreedySampling:
         # decode tokens
         text = self.tokenizer.decode(input_ids[0].tolist())
         return text
+
+#====================#
+# Collate Function   #
+#====================#
+
+def collate_func(batch, padding_token_id=50256, allowed_max_length=None, device="cpu"):
+    # since, each sample has different length, we need to pad them
+    # find max length
+    max_length = max(len(sample)+1 for sample in batch)
+
+    # padded batch 
+    padded_inputs = []
+    padded_targets = []
+
+    for sample in batch:
+        # add padding token to make all samples same length
+        padded_sample = sample + [padding_token_id] * (max_length - len(sample))
+
+        padded_inpt = torch.tensor(padded_sample[:-1])
+        padded_targ = torch.tensor(padded_sample[1:])
+
+        # replace output padding token with -100
+        mask = padded_targ == padding_token_id
+        indices = torch.nonzero(mask).squeeze()
+        if indices.numel() > 1:
+            padded_targ[indices[1:]] = -100
+
+        if allowed_max_length is not None:
+            padded_inpt = padded_inpt[:allowed_max_length]
+            padded_targ = padded_targ[:allowed_max_length]
+
+        padded_inputs.append(padded_inpt)
+        padded_targets.append(padded_targ)
+
+    # convert to tensor
+    padded_inputs = torch.stack(padded_inputs).to(device)
+    padded_targets = torch.stack(padded_targets).to(device)
+
+    return padded_inputs, padded_targets
+
+#====================#
+# Dataset Splitting  #
+#====================#
+
+def split_dataset(dataset, train_ratio=0.85, val_ratio=0.1, test_ratio=0.05):
+    train_portion = int(len(dataset) * train_ratio)
+    val_portion = int(len(dataset) * val_ratio)
+    test_portion = int(len(dataset) * test_ratio)
+    return dataset[:train_portion], dataset[train_portion:train_portion + val_portion], dataset[train_portion + val_portion:train_portion + val_portion + test_portion]

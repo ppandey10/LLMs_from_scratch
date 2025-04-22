@@ -1,3 +1,5 @@
 **/notebooks/
 *.pth
 __pycache__/
+**/gpt2/
+**/logs/

@@ -18,7 +18,7 @@ def main():
     tokenizer = tiktoken.get_encoding("gpt2")
 
     # load config
-    config_path = "configuration.yaml"
+    config_path = "/home/ge73qip/LLMs/LLMs_from_scratch/nakliGPT/configuration/configuration.yaml"
     config = load_config(config_path)
 
     # load dataset
